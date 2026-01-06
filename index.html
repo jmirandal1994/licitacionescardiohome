@@ -3,19 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CardioHome SpA | Gestión Pro</title>
+    <title>CardioHome SpA | Tender Management System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .sidebar-link.active { background: #1e1b4b; border-left: 4px solid #ef4444; color: white; }
+        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
+        .sidebar-link { transition: all 0.2s; border-left: 4px solid transparent; cursor: pointer; }
+        .sidebar-link.active { background: #1e1b4b; border-left-color: #ef4444; color: white; }
         .status-pill { padding: 2px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
-        .folder-card:hover { transform: translateY(-5px); transition: all 0.3s; }
+        .hidden-view { display: none; }
     </style>
 </head>
 <body class="bg-[#f8fafc] text-slate-800">
+
+    <script>
+        const SB_URL = "https://ybwtjxgvicebwmyhkhda.supabase.co";
+        const SB_KEY = "sb_publishable_Ae-JOXtX_fLpFTMgne_4Sw_jiGrdCMp";
+        const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+
+        async function checkAccess() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) { window.location.href = 'login.html'; }
+        }
+        checkAccess();
+    </script>
 
     <div class="flex h-screen">
         <aside class="w-72 bg-[#0f172a] text-slate-400 flex flex-col shadow-2xl">
@@ -23,23 +37,35 @@
                 <div class="flex items-center gap-3">
                     <img src="logo.png" alt="CardioHome" class="w-12 h-12 rounded-xl shadow-lg border-2 border-slate-700 p-1 bg-white">
                     <div>
-                        <h1 class="text-white font-bold tracking-tight text-lg">CARDIOHOME</h1>
-                        <span class="text-[10px] text-red-500 font-black tracking-[0.2em]">TENDER HUB</span>
+                        <h1 class="text-white font-bold tracking-tight leading-none text-lg">CARDIOHOME</h1>
+                        <span class="text-[10px] text-red-500 font-black tracking-[0.2em]">SISTEMA DE GESTIÓN</span>
                     </div>
                 </div>
             </div>
 
             <nav class="flex-1 px-4 space-y-1">
-                <button onclick="nav('dashboard')" id="btn-dashboard" class="sidebar-link active flex items-center gap-3 p-3 w-full rounded-lg hover:text-white transition-all">
+                <p class="px-4 text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Menú Principal</p>
+                <div onclick="showView('dashboard')" id="nav-dashboard" class="sidebar-link active flex items-center gap-3 p-3 rounded-lg text-slate-300 hover:text-white">
                     <i data-lucide="layout-grid" class="w-5 h-5"></i> Dashboard
-                </button>
-                <button onclick="nav('documentos')" id="btn-documentos" class="sidebar-link flex items-center gap-3 p-3 w-full rounded-lg hover:text-white transition-all">
-                    <i data-lucide="folder-kanban" class="w-5 h-5"></i> Documentación
-                </a>
+                </div>
+                <div onclick="showView('licitaciones')" id="nav-licitaciones" class="sidebar-link flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white">
+                    <i data-lucide="folder-kanban" class="w-5 h-5"></i> Licitaciones
+                </div>
+                
+                <p class="px-4 text-[10px] font-bold text-slate-500 uppercase mt-8 mb-2 tracking-widest">Repositorio</p>
+                <div onclick="showView('storage-ordenes')" class="sidebar-link flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white">
+                    <i data-lucide="file-check" class="w-5 h-5"></i> Órdenes de Compra
+                </div>
+                <div onclick="showView('storage-legal')" class="sidebar-link flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white">
+                    <i data-lucide="briefcase" class="w-5 h-5"></i> Documentos Legales
+                </div>
+                <div onclick="showView('storage-medicos')" class="sidebar-link flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white">
+                    <i data-lucide="user-cog" class="w-5 h-5"></i> Staff Médico
+                </div>
             </nav>
 
             <div class="p-6 border-t border-slate-800">
-                <button onclick="logout()" class="flex items-center gap-3 p-3 w-full text-red-400 hover:bg-red-500/10 rounded-xl transition">
+                <button onclick="supabaseClient.auth.signOut().then(() => location.href='login.html')" class="flex items-center gap-3 p-3 w-full text-red-400 hover:bg-red-500/10 rounded-xl transition">
                     <i data-lucide="log-out" class="w-5 h-5"></i> Cerrar Sesión
                 </button>
             </div>
@@ -47,36 +73,32 @@
 
         <main class="flex-1 flex flex-col overflow-hidden">
             <header class="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-10 shadow-sm z-10">
-                <h2 id="page-title" class="text-slate-800 font-bold text-xl uppercase tracking-tight">Dashboard General</h2>
+                <div>
+                    <h2 class="text-slate-400 text-xs font-bold uppercase tracking-widest">Panel Administrativo</h2>
+                    <p class="text-slate-800 font-semibold" id="display-view-name">Dashboard</p>
+                </div>
                 <button onclick="openNewModal()" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-red-200 transition-all flex items-center gap-2">
                     <i data-lucide="plus" class="w-4 h-4"></i> Nueva Postulación
                 </button>
             </header>
 
-            <div id="view-dashboard" class="view-content flex-1 overflow-y-auto p-10 space-y-8">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                        <p class="text-slate-500 text-xs font-bold uppercase">Total Adjudicado</p>
-                        <h3 class="text-2xl font-black text-green-600" id="kpi-monto">$0</h3>
+            <div id="view-dashboard" class="flex-1 overflow-y-auto p-10 space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="glass-card p-6 rounded-3xl border border-white shadow-sm ring-1 ring-slate-200">
+                        <div class="w-10 h-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center mb-4"><i data-lucide="trending-up"></i></div>
+                        <p class="text-slate-500 text-xs font-bold uppercase">Adjudicado</p>
+                        <h3 class="text-2xl font-black text-slate-800" id="kpi-monto">$0</h3>
                     </div>
-                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                        <p class="text-slate-500 text-xs font-bold uppercase">Licitaciones Totales</p>
-                        <h3 class="text-2xl font-black text-indigo-600" id="kpi-count">0</h3>
                     </div>
-                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                        <p class="text-slate-500 text-xs font-bold uppercase">Estatus Sistema</p>
-                        <h3 class="text-2xl font-black text-slate-800">ONLINE</h3>
-                    </div>
-                </div>
 
                 <div class="bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden">
                     <table class="w-full text-left">
-                        <thead class="bg-slate-50 text-[10px] uppercase font-black text-slate-400">
-                            <tr>
-                                <th class="px-8 py-5">Proceso</th>
-                                <th class="px-8 py-5">Área</th>
-                                <th class="px-8 py-5">Monto</th>
-                                <th class="px-8 py-5">Estado</th>
+                        <thead>
+                            <tr class="text-[10px] uppercase tracking-[0.15em] text-slate-400 bg-slate-50/50">
+                                <th class="px-8 py-5 font-black">Proceso</th>
+                                <th class="px-8 py-5 font-black">Área</th>
+                                <th class="px-8 py-5 font-black">Presupuesto</th>
+                                <th class="px-8 py-5 font-black">Estado</th>
                                 <th class="px-8 py-5 text-center">Simulador</th>
                             </tr>
                         </thead>
@@ -85,74 +107,22 @@
                 </div>
             </div>
 
-            <div id="view-documentos" class="view-content hidden flex-1 overflow-y-auto p-10">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div class="folder-card bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col items-center text-center cursor-pointer">
-                        <div class="w-20 h-20 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center mb-4"><i data-lucide="file-text" class="w-10 h-10"></i></div>
-                        <h4 class="font-bold text-slate-800">Órdenes de Compra</h4>
-                        <p class="text-xs text-slate-400 mt-2">Recepciones Conformes</p>
-                    </div>
-                    <div class="folder-card bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col items-center text-center cursor-pointer">
-                        <div class="w-20 h-20 bg-purple-100 text-purple-600 rounded-3xl flex items-center justify-center mb-4"><i data-lucide="shield-check" class="w-10 h-10"></i></div>
-                        <h4 class="font-bold text-slate-800">Legal y Estatutos</h4>
-                        <p class="text-xs text-slate-400 mt-2">Carnet - Vigencias - Constitución</p>
-                    </div>
-                    <div class="folder-card bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col items-center text-center cursor-pointer">
-                        <div class="w-20 h-20 bg-red-100 text-red-600 rounded-3xl flex items-center justify-center mb-4"><i data-lucide="users" class="w-10 h-10"></i></div>
-                        <h4 class="font-bold text-slate-800">Staff Médico</h4>
-                        <p class="text-xs text-slate-400 mt-2">Docs por Especialidad</p>
-                    </div>
+            <div id="view-storage" class="flex-1 overflow-y-auto p-10 hidden-view">
+                <div class="flex justify-between items-center mb-8">
+                    <h3 class="text-2xl font-black" id="storage-title">Documentos</h3>
+                    <input type="file" id="file-upload" class="hidden" accept=".pdf" onchange="uploadFile()">
+                    <button onclick="document.getElementById('file-upload').click()" class="bg-[#0f172a] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-indigo-900 transition">
+                        <i data-lucide="upload-cloud"></i> Subir PDF
+                    </button>
                 </div>
+                
+                <div id="file-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    </div>
             </div>
         </main>
     </div>
 
-    <div id="modal-nueva-licitacion" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-[2.5rem] max-w-lg w-full p-10 shadow-2xl">
-            <h3 class="text-2xl font-black mb-6">Nueva Postulación</h3>
-            <form id="form-licitacion" class="space-y-4">
-                <input type="text" id="add-nombre" placeholder="Nombre de la Licitación" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-red-500" required>
-                <div class="grid grid-cols-2 gap-4">
-                    <input type="text" id="add-id" placeholder="ID Licitación" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-red-500" required>
-                    <input type="number" id="add-monto" placeholder="Monto CLP" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-red-500" required>
-                </div>
-                <select id="add-evaluacion" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none">
-                    <option value="Neurología">Neurología</option>
-                    <option value="Pediatría">Pediatría</option>
-                    <option value="Familiar">Médico Familiar</option>
-                </select>
-                <select id="add-status" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none">
-                    <option value="Pendiente">Pendiente</option>
-                    <option value="Espera de Resolución">Espera de Resolución</option>
-                    <option value="Adjudicada">Adjudicada</option>
-                </select>
-                <div class="flex gap-2 pt-4">
-                    <button type="button" onclick="closeNewModal()" class="flex-1 p-4 font-bold text-slate-400">Cancelar</button>
-                    <button type="submit" class="flex-1 p-4 bg-red-600 text-white font-bold rounded-2xl">Guardar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="modal-simulador" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-[2.5rem] max-w-2xl w-full p-10 shadow-2xl flex flex-col md:flex-row gap-8">
-            <div class="flex-1 space-y-4">
-                <h3 class="text-xl font-black" id="sim-nombre">Simulador</h3>
-                <input type="number" id="gasto-medico" oninput="calculate()" placeholder="Honorarios Médicos" class="w-full p-3 bg-slate-50 border rounded-xl">
-                <input type="number" id="gasto-logistica" oninput="calculate()" placeholder="Logística" class="w-full p-3 bg-slate-50 border rounded-xl">
-                <input type="number" id="gasto-otros" oninput="calculate()" placeholder="Otros" class="w-full p-3 bg-slate-50 border rounded-xl">
-                <button onclick="closeModal()" class="w-full p-3 text-slate-400 font-bold">Cerrar</button>
-            </div>
-            <div class="w-full md:w-64 bg-[#0f172a] rounded-[2rem] p-8 text-white text-center flex flex-col justify-center">
-                <p class="text-[10px] font-bold uppercase text-slate-400">Utilidad</p>
-                <h4 class="text-3xl font-black" id="sim-resultado">$0</h4>
-                <div class="w-full bg-slate-800 h-2 rounded-full mt-4 overflow-hidden">
-                    <div id="sim-bar" class="bg-red-500 h-full transition-all" style="width: 0%"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script src="app.js"></script>
+    <script>lucide.createIcons();</script>
 </body>
 </html>
