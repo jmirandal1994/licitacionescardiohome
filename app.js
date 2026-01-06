@@ -1,97 +1,96 @@
-const SB_URL = "https://ybwtjxgvicebwmyhkhda.supabase.co";
-const SB_KEY = "sb_publishable_Ae-JOXtX_fLpFTMgne_4Sw_jiGrdCMp";
-const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+// CONFIGURACIÓN DE STORAGE
+let currentBucket = 'documentos';
+let currentPath = '';
 
-let licitacionesData = [];
-let currentLicitacion = null;
+// NAVEGACIÓN DE VISTAS
+function showView(viewName) {
+    const dashboard = document.getElementById('view-dashboard');
+    const storage = document.getElementById('view-storage');
+    const title = document.getElementById('display-view-name');
 
-// INICIALIZACIÓN
-document.addEventListener('DOMContentLoaded', async () => {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) { window.location.href = 'login.html'; return; }
-    
-    fetchLicitaciones();
-    lucide.createIcons();
-});
+    // Resetear vistas
+    dashboard.classList.add('hidden-view');
+    storage.classList.add('hidden-view');
 
-// NAVEGACIÓN ENTRE VISTAS
-function nav(section) {
-    document.querySelectorAll('.view-content').forEach(v => v.classList.add('hidden'));
-    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
-    
-    document.getElementById(`view-${section}`).classList.remove('hidden');
-    document.getElementById(`btn-${section}`).classList.add('active');
-    document.getElementById('page-title').innerText = section === 'dashboard' ? 'Dashboard General' : 'Repositorio Documental';
+    if(viewName === 'dashboard') {
+        dashboard.classList.remove('hidden-view');
+        title.innerText = "Dashboard";
+    } else {
+        storage.classList.remove('hidden-view');
+        currentPath = viewName.replace('storage-', '');
+        title.innerText = viewName.replace('storage-', 'Repositorio: ').toUpperCase();
+        loadFiles();
+    }
 }
 
-// OBTENER DATOS
-async function fetchLicitaciones() {
-    const { data, error } = await supabaseClient.from('licitaciones').select('*').order('created_at', { ascending: false });
-    if (error) return;
-    licitacionesData = data;
-    renderTable(data);
-    updateKPIs(data);
-}
+// CARGAR ARCHIVOS DESDE SUPABASE
+async function loadFiles() {
+    const listContainer = document.getElementById('file-list');
+    listContainer.innerHTML = '<p class="text-slate-400">Cargando archivos...</p>';
 
-function updateKPIs(data) {
-    const total = data.filter(i => i.status === 'Adjudicada').reduce((s, i) => s + Number(i.monto_adjudicado), 0);
-    document.getElementById('kpi-monto').innerText = `$${total.toLocaleString('es-CL')}`;
-    document.getElementById('kpi-count').innerText = data.length;
-}
+    const { data, error } = await supabaseClient
+        .storage
+        .from(currentBucket)
+        .list(currentPath);
 
-function renderTable(data) {
-    const tableBody = document.getElementById('tender-table-body');
-    tableBody.innerHTML = '';
-    data.forEach(item => {
-        const color = item.status === 'Adjudicada' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-orange-100 text-orange-700 border-orange-200';
-        const row = document.createElement('tr');
-        row.className = "hover:bg-slate-50 transition-all";
-        row.innerHTML = `
-            <td class="px-8 py-5 font-bold text-slate-800">${item.nombre_licitacion}<br><span class="text-[10px] text-slate-400 font-mono">${item.codigo_id}</span></td>
-            <td class="px-8 py-5 text-sm">${item.evaluacion}</td>
-            <td class="px-8 py-5 font-black">$${Number(item.monto_adjudicado).toLocaleString('es-CL')}</td>
-            <td class="px-8 py-5"><span class="status-pill border ${color}">${item.status}</span></td>
-            <td class="px-8 py-5 text-center"><button onclick="openSimulador('${item.id}')" class="p-2 bg-slate-100 rounded-lg hover:bg-slate-900 hover:text-white transition-all"><i data-lucide="calculator" class="w-4 h-4"></i></button></td>
+    if (error) return console.error(error);
+
+    listContainer.innerHTML = '';
+    data.forEach(file => {
+        const card = document.createElement('div');
+        card.className = "bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between group hover:border-indigo-500 transition";
+        card.innerHTML = `
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center">
+                    <i data-lucide="file-text"></i>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800 text-sm truncate w-40">${file.name}</p>
+                    <p class="text-[10px] text-slate-400 uppercase">Documento PDF</p>
+                </div>
+            </div>
+            <button onclick="downloadFile('${file.name}')" class="text-slate-400 hover:text-indigo-600 transition">
+                <i data-lucide="download"></i>
+            </button>
         `;
-        tableBody.appendChild(row);
+        listContainer.appendChild(card);
     });
     lucide.createIcons();
 }
 
-// FORMULARIO NUEVA LICITACIÓN
-function openNewModal() { document.getElementById('modal-nueva-licitacion').classList.remove('hidden'); }
-function closeNewModal() { document.getElementById('modal-nueva-licitacion').classList.add('hidden'); }
+// SUBIR ARCHIVO PDF
+async function uploadFile() {
+    const fileInput = document.getElementById('file-upload');
+    const file = fileInput.files[0];
+    if (!file) return;
 
-document.getElementById('form-licitacion').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const nueva = {
-        nombre_licitacion: document.getElementById('add-nombre').value,
-        codigo_id: document.getElementById('add-id').value,
-        monto_adjudicado: Number(document.getElementById('add-monto').value),
-        evaluacion: document.getElementById('add-evaluacion').value,
-        status: document.getElementById('add-status').value
-    };
-    const { error } = await supabaseClient.from('licitaciones').insert([nueva]);
-    if (!error) { closeNewModal(); fetchLicitaciones(); document.getElementById('form-licitacion').reset(); }
-});
+    const filePath = `${currentPath}/${Date.now()}_${file.name}`;
 
-// SIMULADOR
-function openSimulador(id) {
-    currentLicitacion = licitacionesData.find(l => l.id === id);
-    document.getElementById('sim-nombre').innerText = currentLicitacion.nombre_licitacion;
-    document.getElementById('modal-simulador').classList.remove('hidden');
-    calculate();
+    const { error } = await supabaseClient
+        .storage
+        .from(currentBucket)
+        .upload(filePath, file);
+
+    if (error) {
+        alert("Error al subir archivo");
+    } else {
+        alert("Archivo subido con éxito");
+        loadFiles();
+    }
 }
 
-function calculate() {
-    const gastos = (Number(document.getElementById('gasto-medico').value) || 0) + 
-                   (Number(document.getElementById('gasto-logistica').value) || 0) + 
-                   (Number(document.getElementById('gasto-otros').value) || 0);
-    const utilidad = currentLicitacion.monto_adjudicado - gastos;
-    const perc = (utilidad / currentLicitacion.monto_adjudicado) * 100;
-    document.getElementById('sim-resultado').innerText = `$${utilidad.toLocaleString('es-CL')}`;
-    document.getElementById('sim-bar').style.width = `${Math.max(0, Math.min(perc, 100))}%`;
-}
+// DESCARGAR ARCHIVO PDF
+async function downloadFile(fileName) {
+    const { data, error } = await supabaseClient
+        .storage
+        .from(currentBucket)
+        .download(`${currentPath}/${fileName}`);
 
-function closeModal() { document.getElementById('modal-simulador').classList.add('hidden'); }
-function logout() { supabaseClient.auth.signOut().then(() => location.href='login.html'); }
+    if (error) return console.error(error);
+
+    const url = URL.createObjectURL(data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+}
