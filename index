@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CardioHome SpA | Gestión de Licitaciones</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans">
+
+    <div class="flex h-screen overflow-hidden">
+        <aside class="w-64 bg-indigo-900 text-white flex-shrink-0 hidden md:flex flex-col">
+            <div class="p-6 flex items-center gap-2">
+                <div class="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+                    <i data-lucide="heart-pulse" class="w-5 h-5"></i>
+                </div>
+                <span class="text-xl font-bold tracking-tight">CARDIOHOME</span>
+            </div>
+            
+            <nav class="flex-1 px-4 py-4 space-y-2">
+                <a href="#" class="flex items-center gap-3 p-3 rounded-lg bg-indigo-800 transition">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard
+                </a>
+                <a href="#" class="flex items-center gap-3 p-3 rounded-lg hover:bg-indigo-800 transition">
+                    <i data-lucide="file-text" class="w-5 h-5"></i> Licitaciones
+                </a>
+                <a href="#" class="flex items-center gap-3 p-3 rounded-lg hover:bg-indigo-800 transition">
+                    <i data-lucide="folder-open" class="w-5 h-5"></i> Documentación
+                </a>
+                <a href="#" class="flex items-center gap-3 p-3 rounded-lg hover:bg-indigo-800 transition">
+                    <i data-lucide="calculator" class="w-5 h-5"></i> Simulador
+                </a>
+                <a href="#" class="flex items-center gap-3 p-3 rounded-lg hover:bg-indigo-800 transition">
+                    <i data-lucide="users" class="w-5 h-5"></i> Staff Médico
+                </a>
+            </nav>
+
+            <div class="p-4 border-t border-indigo-800">
+                <button onclick="logout()" class="flex items-center gap-3 p-3 w-full hover:bg-red-600 rounded-lg transition">
+                    <i data-lucide="log-out" class="w-5 h-5"></i> Cerrar Sesión
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 overflow-y-auto">
+            <header class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center">
+                <h2 class="text-xl font-semibold text-slate-700">Panel de Control de Licitaciones</h2>
+                <div class="flex items-center gap-4">
+                    <span id="user-email" class="text-sm text-slate-500 italic"></span>
+                    <button class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+                        + Nueva Licitación
+                    </button>
+                </div>
+            </header>
+
+            <div class="p-8 space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <p class="text-sm text-slate-500 font-medium">Total Adjudicado</p>
+                        <h3 id="total-adjudicado" class="text-3xl font-bold text-green-600">$0</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <p class="text-sm text-slate-500 font-medium">Licitaciones Activas</p>
+                        <h3 id="licitaciones-count" class="text-3xl font-bold text-indigo-600">0</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <p class="text-sm text-slate-500 font-medium">Margen Proyectado Avg.</p>
+                        <h3 id="margen-avg" class="text-3xl font-bold text-slate-800">0%</h3>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                        <h3 class="font-bold text-slate-700">Listado Maestro de Procesos</h3>
+                    </div>
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="text-xs uppercase text-slate-400 bg-slate-50">
+                                <th class="px-6 py-3 font-semibold">Licitación / ID</th>
+                                <th class="px-6 py-3 font-semibold">Especialidad</th>
+                                <th class="px-6 py-3 font-semibold">Monto</th>
+                                <th class="px-6 py-3 font-semibold">Estado</th>
+                                <th class="px-6 py-3 font-semibold text-center">Simulador</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tender-table-body" class="divide-y divide-slate-100">
+                            </tbody>
+                    </table>
+                </div>
+
+                <div id="simulador-modal" class="hidden bg-white p-8 rounded-xl border-2 border-indigo-500 shadow-xl">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-2xl font-bold text-indigo-900">Simulador de Costos: <span id="sim-nombre-lic"></span></h3>
+                        <button onclick="closeSimulador()" class="text-slate-400 hover:text-red-500">
+                            <i data-lucide="x-circle"></i>
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="space-y-4">
+                            <h4 class="font-semibold border-b pb-2">Desglose de Gastos</h4>
+                            <div class="flex justify-between italic text-sm">
+                                <span>Monto Adjudicado:</span>
+                                <span id="sim-monto-total" class="font-bold"></span>
+                            </div>
+                            <div class="space-y-3" id="gastos-inputs">
+                                <div>
+                                    <label class="text-xs text-slate-500">Honorarios Médicos</label>
+                                    <input type="number" class="w-full p-2 border rounded bg-slate-50" placeholder="0">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-slate-500">Traslado y Alojamiento</label>
+                                    <input type="number" class="w-full p-2 border rounded bg-slate-50" placeholder="0">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-indigo-50 p-6 rounded-lg flex flex-col justify-center items-center">
+                            <p class="text-indigo-700 font-medium">Utilidad Estimada</p>
+                            <span class="text-4xl font-black text-indigo-900" id="utilidad-final">$0</span>
+                            <div class="w-full bg-slate-200 h-4 rounded-full mt-4 overflow-hidden">
+                                <div id="utilidad-bar" class="bg-green-500 h-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Inicializar Iconos
+        lucide.createIcons();
+
+        // Lógica de colores para Status
+        function getStatusBadge(status) {
+            const styles = {
+                'Pendiente': 'bg-yellow-100 text-yellow-700 border-yellow-200',
+                'Espera de Resolución': 'bg-blue-100 text-blue-700 border-blue-200',
+                'Adjudicada': 'bg-green-100 text-green-700 border-green-200',
+                'No Adjudicada': 'bg-red-100 text-red-700 border-red-200'
+            };
+            return `<span class="px-3 py-1 rounded-full text-xs font-bold border ${styles[status] || 'bg-slate-100'}">${status}</span>`;
+        }
+
+        // Simulación de carga (Aquí conectarás con Supabase)
+        function renderLicitaciones(data) {
+            const container = document.getElementById('tender-table-body');
+            // ... lógica de mapeo ...
+        }
+    </script>
+</body>
+</html>
