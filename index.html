@@ -5,37 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CardioHome SpA | Tender Hub</title>
     
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        const SB_URL = "https://ybwtjxgvicebwmyhkhda.supabase.co";
-        const SB_KEY = "sb_publishable_Ae-JOXtX_fLpFTMgne_4Sw_jiGrdCMp";
-        const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
-
-        async function verifySession() {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) {
-                // Si no hay usuario, saltamos al login de inmediato
-                window.location.replace('login.html');
-            } else {
-                // Si hay usuario, permitimos ver la página
-                document.body.style.display = 'block';
-            }
-        }
-        verifySession();
-    </script>
-
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
     
     <style>
-        /* El cuerpo está oculto hasta que verifySession lo autorice */
-        body { font-family: 'Inter', sans-serif; display: none; }
-        .sidebar-link { cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; transition: 0.2s; border-left: 4px solid transparent; }
-        .sidebar-link.active { background: #1e1b4b; border-left-color: #ef4444; color: white; }
+        body { font-family: 'Inter', sans-serif; opacity: 0; transition: opacity 0.5s; }
+        .sidebar-link { cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; transition: 0.2s; }
+        .sidebar-link.active { background: #1e1b4b; color: white; border-left: 4px solid #ef4444; }
         .view-section { display: none; }
         .view-section.active { display: block; }
+        .status-pill { padding: 4px 10px; border-radius: 8px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; border: 1px solid; }
     </style>
 </head>
 <body class="bg-[#f8fafc] text-slate-800">
@@ -69,7 +51,7 @@
             </nav>
 
             <div class="p-6 border-t border-slate-800">
-                <button onclick="logout()" class="flex items-center gap-3 p-3 w-full text-red-400 hover:bg-red-500/10 rounded-xl transition">
+                <button onclick="logout()" class="flex items-center gap-3 p-3 w-full text-red-400 hover:bg-red-500/10 rounded-xl transition font-bold">
                     <i data-lucide="log-out" class="w-5 h-5"></i> Cerrar Sesión
                 </button>
             </div>
@@ -78,20 +60,20 @@
         <main class="flex-1 flex flex-col overflow-hidden">
             <header class="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-10">
                 <h2 id="view-title" class="font-black text-xl text-slate-800 uppercase">Dashboard</h2>
-                <button onclick="openModal('modal-licitacion')" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg flex items-center gap-2">
+                <button onclick="openModal('modal-licitacion')" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-transform active:scale-95">
                     <i data-lucide="plus-circle" class="w-4 h-4"></i> Nueva Postulación
                 </button>
             </header>
 
             <section id="view-dashboard" class="view-section active p-10 overflow-y-auto">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                    <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm"><p class="text-xs font-bold text-slate-400 uppercase">Adjudicado</p><h3 id="kpi-monto" class="text-3xl font-black text-green-600">$0</h3></div>
-                    <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm"><p class="text-xs font-bold text-slate-400 uppercase">Licitaciones</p><h3 id="kpi-count" class="text-3xl font-black text-indigo-600">0</h3></div>
-                    <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm"><p class="text-xs font-bold text-slate-400 uppercase">Status</p><h3 class="text-3xl font-black text-slate-800 uppercase">Online</h3></div>
+                    <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm"><p class="text-xs font-bold text-slate-400 uppercase">Adjudicado</p><h3 id="kpi-monto" class="text-3xl font-black text-green-600 font-mono">$0</h3></div>
+                    <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm"><p class="text-xs font-bold text-slate-400 uppercase">Licitaciones</p><h3 id="kpi-count" class="text-3xl font-black text-indigo-600 font-mono">0</h3></div>
+                    <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm"><p class="text-xs font-bold text-slate-400 uppercase">Estado</p><h3 class="text-3xl font-black text-slate-800 uppercase">Online</h3></div>
                 </div>
                 <div class="bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden">
                     <table class="w-full text-left">
-                        <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase"><tr><th class="px-8 py-5">Licitación</th><th class="px-8 py-5">Área</th><th class="px-8 py-5">Monto</th><th class="px-8 py-5">Estado</th><th class="px-8 py-5 text-center">Acciones</th></tr></thead>
+                        <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest"><th class="px-8 py-5">Licitación</th><th class="px-8 py-5">Área</th><th class="px-8 py-5">Monto</th><th class="px-8 py-5">Estado</th><th class="px-8 py-5 text-center">Acciones</th></thead>
                         <tbody id="tender-table-body" class="divide-y divide-slate-100"></tbody>
                     </table>
                 </div>
@@ -100,13 +82,13 @@
             <section id="view-files" class="view-section p-10 overflow-y-auto">
                 <div class="flex justify-between items-center mb-8">
                     <div id="staff-folders" class="hidden flex gap-2">
-                        <button onclick="changeFolder('staff/neurologia')" class="bg-slate-100 px-4 py-2 rounded-xl text-[10px] font-bold">Neurología</button>
-                        <button onclick="changeFolder('staff/pediatria')" class="bg-slate-100 px-4 py-2 rounded-xl text-[10px] font-bold">Pediatría</button>
-                        <button onclick="changeFolder('staff/familiar')" class="bg-slate-100 px-4 py-2 rounded-xl text-[10px] font-bold">Familiar</button>
+                        <button onclick="changeFolder('staff/neurologia')" class="bg-slate-100 px-4 py-2 rounded-xl text-[10px] font-bold hover:bg-indigo-600 hover:text-white transition">Neurología</button>
+                        <button onclick="changeFolder('staff/pediatria')" class="bg-slate-100 px-4 py-2 rounded-xl text-[10px] font-bold hover:bg-indigo-600 hover:text-white transition">Pediatría</button>
+                        <button onclick="changeFolder('staff/familiar')" class="bg-slate-100 px-4 py-2 rounded-xl text-[10px] font-bold hover:bg-indigo-600 hover:text-white transition">Familiar</button>
                     </div>
                     <input type="file" id="file-input" class="hidden" accept=".pdf" onchange="uploadFile()">
-                    <button onclick="document.getElementById('file-input').click()" class="bg-[#0f172a] text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg hover:bg-black transition">
-                        <i data-lucide="upload-cloud" class="w-5 h-5"></i> Subir Documento PDF
+                    <button onclick="document.getElementById('file-input').click()" class="bg-[#0f172a] text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg">
+                        <i data-lucide="upload-cloud" class="w-5 h-5"></i> Subir PDF
                     </button>
                 </div>
                 <div id="file-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
@@ -118,12 +100,12 @@
                     <h3 class="text-2xl font-black mb-6">Analizador IA de Bases</h3>
                     <input type="file" id="ia-file" class="hidden" accept=".pdf" onchange="analyzePDF()">
                     <button onclick="document.getElementById('ia-file').click()" class="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-bold">Cargar Bases PDF</button>
-                    <div id="ia-loading" class="hidden mt-10 animate-pulse text-indigo-600 font-bold">Escaneando bases...</div>
+                    <div id="ia-loading" class="hidden mt-10 animate-pulse text-indigo-600 font-bold uppercase text-xs tracking-widest">Escaneando bases...</div>
                     <div id="ia-result" class="hidden mt-10 text-left grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100"><h4 class="font-bold mb-3 text-red-500">Anexos Críticos</h4><div id="ia-anexos" class="space-y-2 text-xs"></div></div>
-                        <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100"><h4 class="font-bold mb-3 text-green-500">Económico</h4><div id="ia-economico" class="space-y-2 text-xs"></div></div>
-                        <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100"><h4 class="font-bold mb-3 text-orange-500">Evaluación</h4><div id="ia-evaluacion" class="space-y-2 text-xs"></div></div>
-                        <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100"><h4 class="font-bold mb-3 text-indigo-500">Profesionales</h4><div id="ia-profesionales" class="space-y-2 text-xs"></div></div>
+                        <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100"><h4 class="font-bold mb-3 text-red-500 uppercase text-[10px]">Anexos Críticos</h4><div id="ia-anexos" class="space-y-2 text-xs"></div></div>
+                        <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100"><h4 class="font-bold mb-3 text-green-500 uppercase text-[10px]">Económico</h4><div id="ia-economico" class="space-y-2 text-xs"></div></div>
+                        <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100"><h4 class="font-bold mb-3 text-orange-500 uppercase text-[10px]">Evaluación</h4><div id="ia-evaluacion" class="space-y-2 text-xs"></div></div>
+                        <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100"><h4 class="font-bold mb-3 text-indigo-500 uppercase text-[10px]">Staff Requerido</h4><div id="ia-profesionales" class="space-y-2 text-xs"></div></div>
                     </div>
                 </div>
             </section>
@@ -131,17 +113,26 @@
     </div>
 
     <div id="modal-licitacion" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6">
-        <div class="bg-white rounded-[2rem] max-w-lg w-full p-10">
+        <div class="bg-white rounded-[2rem] max-w-lg w-full p-10 shadow-2xl">
             <h3 class="text-xl font-black mb-6 uppercase">Ingresar Datos</h3>
             <form id="tender-form" class="space-y-4">
-                <input type="text" id="t-nombre" placeholder="Nombre" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none" required>
-                <input type="text" id="t-id" placeholder="ID" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none" required>
-                <input type="number" id="t-monto" placeholder="Monto" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none" required>
-                <select id="t-eval" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none"><option>Neurología</option><option>Pediatría</option><option>Familiar</option></select>
-                <select id="t-status" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none"><option>Pendiente</option><option>Espera de Resolución</option><option>Adjudicada</option></select>
+                <input type="text" id="t-nombre" placeholder="Nombre de la Licitación" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none" required>
+                <input type="text" id="t-id" placeholder="ID (Ej: 2345-LP24)" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none" required>
+                <input type="number" id="t-monto" placeholder="Monto CLP" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none" required>
+                <select id="t-eval" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none font-bold">
+                    <option value="Neurología">Neurología</option>
+                    <option value="Pediatría">Pediatría</option>
+                    <option value="Familiar">Médico Familiar</option>
+                </select>
+                <select id="t-status" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none font-bold">
+                    <option value="Pendiente">Pendiente a Postular</option>
+                    <option value="Espera de Resolución">Espera de Resolución</option>
+                    <option value="Adjudicada">Adjudicada</option>
+                    <option value="No Adjudicada">No Adjudicada</option>
+                </select>
                 <div class="flex gap-4 pt-4">
                     <button type="button" onclick="closeModal('modal-licitacion')" class="flex-1 text-slate-400 font-bold uppercase text-xs">Cancelar</button>
-                    <button type="submit" class="flex-1 bg-red-600 text-white p-4 rounded-2xl font-bold uppercase text-xs">Guardar Licitación</button>
+                    <button type="submit" class="flex-1 bg-red-600 text-white p-4 rounded-2xl font-bold uppercase text-xs">Guardar</button>
                 </div>
             </form>
         </div>
