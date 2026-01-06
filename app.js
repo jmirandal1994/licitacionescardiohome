@@ -5,28 +5,22 @@ const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
 
 let currentPath = "ordenes";
 let licitacionesCache = [];
+let currentLicitacion = null;
 
-// 2. INICIO Y SEGURIDAD (ARREGLADO)
+// 2. INICIO Y SEGURIDAD
 document.addEventListener('DOMContentLoaded', async () => {
-    // Verificar sesión antes de mostrar nada
     const { data: { session } } = await supabaseClient.auth.getSession();
-    
     if (!session) {
         window.location.replace('login.html');
         return;
     }
-
-    // Mostrar el cuerpo de la página una vez verificado
     document.body.style.opacity = "1";
-    
-    // Cargar datos
     fetchLicitaciones();
     lucide.createIcons();
 });
 
-// 3. NAVEGACIÓN (Funcionalidad de Botones Lateral)
+// 3. NAVEGACIÓN ENTRE VISTAS
 function switchView(view) {
-    // Ocultar todas las secciones
     document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
     
@@ -41,7 +35,7 @@ function switchView(view) {
     } else if (view === 'ia') {
         document.getElementById('view-ia').classList.add('active');
         document.getElementById('nav-ia').classList.add('active');
-        title.innerText = "Analizador Inteligente IA";
+        title.innerText = "Consultor IA CardioHome";
     } else {
         document.getElementById('view-files').classList.add('active');
         document.getElementById(`nav-${view}`).classList.add('active');
@@ -60,10 +54,10 @@ function changeFolder(path) {
     loadFiles();
 }
 
-// 4. LICITACIONES (Carga de tabla)
+// 4. GESTIÓN DE LICITACIONES Y CAMBIO DE ESTATUS MANUAL
 async function fetchLicitaciones() {
     const { data, error } = await supabaseClient.from('licitaciones').select('*').order('created_at', { ascending: false });
-    if (error) return console.error(error);
+    if (error) return;
 
     licitacionesCache = data;
     const body = document.getElementById('tender-table-body');
@@ -72,30 +66,50 @@ async function fetchLicitaciones() {
 
     data.forEach(t => {
         if(t.status === 'Adjudicada') totalAdj += Number(t.monto_adjudicado);
-        const color = t.status === 'Adjudicada' ? 'bg-green-100 text-green-700 border-green-200' : 
-                      t.status === 'No Adjudicada' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-orange-100 text-orange-700 border-orange-200';
         
-        body.innerHTML += `
-            <tr class="hover:bg-slate-50 transition">
-                <td class="px-8 py-6 font-bold text-slate-800">${t.nombre_licitacion}<br><span class="text-[10px] text-slate-400 font-mono">${t.codigo_id}</span></td>
-                <td class="px-8 py-6 text-[10px] font-bold text-slate-500 uppercase">${t.evaluacion}</td>
-                <td class="px-8 py-6 font-black">$${Number(t.monto_adjudicado).toLocaleString('es-CL')}</td>
-                <td class="px-8 py-6"><span class="status-pill ${color}">${t.status}</span></td>
-                <td class="px-8 py-6 text-center">
-                    <button class="p-2 bg-slate-100 rounded-lg hover:bg-black hover:text-white transition"><i data-lucide="calculator" class="w-4 h-4"></i></button>
-                </td>
-            </tr>`;
+        const row = document.createElement('tr');
+        row.className = "hover:bg-slate-50 transition";
+        row.innerHTML = `
+            <td class="px-8 py-6 font-bold text-slate-800">${t.nombre_licitacion}<br><span class="text-[10px] text-slate-400 font-mono">${t.codigo_id}</span></td>
+            <td class="px-8 py-6 text-[10px] font-bold text-slate-500 uppercase">${t.evaluacion}</td>
+            <td class="px-8 py-6 font-black">$${Number(t.monto_adjudicado).toLocaleString('es-CL')}</td>
+            <td class="px-8 py-6">
+                <select onchange="updateStatus('${t.id}', this.value)" class="status-select p-2 rounded-lg border border-slate-200 text-[10px] uppercase font-black ${getStatusColor(t.status)}">
+                    <option value="Pendiente" ${t.status === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                    <option value="Espera de Resolución" ${t.status === 'Espera de Resolución' ? 'selected' : ''}>En Espera</option>
+                    <option value="Adjudicada" ${t.status === 'Adjudicada' ? 'selected' : ''}>Adjudicada ✅</option>
+                    <option value="No Adjudicada" ${t.status === 'No Adjudicada' ? 'selected' : ''}>No Adjudicada ❌</option>
+                    <option value="No se postula" ${t.status === 'No se postula' ? 'selected' : ''}>No se postula</option>
+                </select>
+            </td>
+            <td class="px-8 py-6 text-center">
+                <button onclick="openSimulador('${t.id}')" class="p-3 bg-slate-100 rounded-xl hover:bg-black hover:text-white transition"><i data-lucide="calculator" class="w-4 h-4"></i></button>
+            </td>
+        `;
+        body.appendChild(row);
     });
     document.getElementById('kpi-monto').innerText = `$${totalAdj.toLocaleString('es-CL')}`;
     document.getElementById('kpi-count').innerText = data.length;
     lucide.createIcons();
 }
 
-// 5. STORAGE (Subida y descarga de archivos)
+async function updateStatus(id, newStatus) {
+    const { error } = await supabaseClient.from('licitaciones').update({ status: newStatus }).eq('id', id);
+    if (!error) fetchLicitaciones();
+    else alert("Error al actualizar estatus");
+}
+
+function getStatusColor(status) {
+    if (status === 'Adjudicada') return 'bg-green-100 text-green-700';
+    if (status === 'No Adjudicada') return 'bg-red-100 text-red-700';
+    if (status === 'Pendiente') return 'bg-orange-100 text-orange-700';
+    return 'bg-slate-100 text-slate-500';
+}
+
+// 5. STORAGE CON TÍTULO PERSONALIZADO
 async function loadFiles() {
     const grid = document.getElementById('file-grid');
-    grid.innerHTML = '<p class="col-span-3 text-center py-20 text-slate-400 font-black text-xs uppercase animate-pulse tracking-widest">Sincronizando con la nube...</p>';
-    
+    grid.innerHTML = '<p class="col-span-3 text-center py-20 text-slate-400 font-bold uppercase text-[10px]">Sincronizando Repositorio...</p>';
     const { data, error } = await supabaseClient.storage.from('documentos').list(currentPath);
     if (error) return;
     
@@ -105,7 +119,7 @@ async function loadFiles() {
             <div class="bg-white p-6 rounded-3xl border border-slate-200 flex justify-between items-center group hover:border-red-500 transition shadow-sm">
                 <div class="flex items-center gap-3">
                     <i data-lucide="file-text" class="text-red-600"></i>
-                    <p class="text-[11px] font-bold text-slate-700 truncate w-32 uppercase tracking-tighter">${f.name}</p>
+                    <p class="text-[11px] font-bold text-slate-700 truncate w-40 uppercase tracking-tighter">${f.name}</p>
                 </div>
                 <button onclick="downloadFile('${f.name}')" class="text-slate-300 hover:text-indigo-600 transition"><i data-lucide="download"></i></button>
             </div>`;
@@ -113,13 +127,30 @@ async function loadFiles() {
     lucide.createIcons();
 }
 
+function triggerUpload() {
+    const title = document.getElementById('file-title').value;
+    if (!title) { alert("Por favor, ingresa un título para el documento antes de subirlo."); return; }
+    document.getElementById('file-input').click();
+}
+
 async function uploadFile() {
-    const file = document.getElementById('file-input').files[0];
+    const fileInput = document.getElementById('file-input');
+    const fileTitle = document.getElementById('file-title').value;
+    const file = fileInput.files[0];
     if(!file) return;
-    const path = `${currentPath}/${Date.now()}_${file.name}`;
+
+    // Usar el título del input para el nombre del archivo
+    const cleanTitle = fileTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const fileName = `${cleanTitle}.pdf`;
+    const path = `${currentPath}/${fileName}`;
+
     const { error } = await supabaseClient.storage.from('documentos').upload(path, file);
-    if (!error) loadFiles();
-    else alert("Error al subir: " + error.message);
+    if (!error) {
+        document.getElementById('file-title').value = '';
+        loadFiles();
+    } else {
+        alert("Error: El archivo ya existe o hubo un problema en la subida.");
+    }
 }
 
 async function downloadFile(name) {
@@ -128,7 +159,29 @@ async function downloadFile(name) {
     a.href = URL.createObjectURL(data); a.download = name; a.click();
 }
 
-// 6. ANALIZADOR IA
+// 6. SIMULADOR FINANCIERO PRO
+function openSimulador(id) {
+    currentLicitacion = licitacionesCache.find(l => l.id === id);
+    document.getElementById('sim-nombre').innerText = currentLicitacion.nombre_licitacion;
+    document.getElementById('modal-simulador').classList.remove('hidden');
+    calculate();
+}
+
+function calculate() {
+    const g1 = Number(document.getElementById('gasto-medico').value) || 0;
+    const g2 = Number(document.getElementById('gasto-logistica').value) || 0;
+    const g3 = Number(document.getElementById('gasto-otros').value) || 0;
+
+    const utilidad = currentLicitacion.monto_adjudicado - (g1 + g2 + g3);
+    const perc = (utilidad / currentLicitacion.monto_adjudicado) * 100;
+
+    document.getElementById('sim-resultado').innerText = `$${utilidad.toLocaleString('es-CL')}`;
+    const bar = document.getElementById('sim-bar');
+    bar.style.width = `${Math.max(0, Math.min(perc, 100))}%`;
+    bar.className = perc < 20 ? 'bg-red-500 h-full' : 'bg-green-500 h-full';
+}
+
+// 7. ANALIZADOR IA (Informe Estratégico)
 async function analyzePDF() {
     const file = document.getElementById('ia-file').files[0];
     if(!file) return;
@@ -147,15 +200,13 @@ async function analyzePDF() {
         }
         const raw = text.toLowerCase();
 
-        const mapIA = (id, patterns) => {
-            const container = document.getElementById(id);
-            container.innerHTML = patterns.filter(p => p.words.some(w => raw.includes(w))).map(p => `<div class="p-3 bg-white rounded-xl border border-slate-100 mb-1 flex justify-between items-center font-bold text-[10px]"><span>${p.name}</span><i data-lucide="check-circle" class="w-3 h-3 text-green-500"></i></div>`).join('') || '<span class="text-slate-300 italic">No detectado.</span>';
-        }
+        // Lógica de detección de patrones
+        const find = (keywords) => keywords.filter(k => k.p.some(p => raw.includes(p)));
 
-        mapIA('ia-anexos', [{name:"Boleta Garantía", words:["boleta","garantia","seriedad"]}, {name:"Declaración Jurada", words:["jurada","inhabilidades"]}]);
-        mapIA('ia-economico', [{name:"Presupuesto Máximo", words:["presupuesto","maximo","clp","$"]}]);
-        mapIA('ia-evaluacion', [{name:"Criterio Económico", words:["precio","economica","puntaje"]}]);
-        mapIA('ia-profesionales', [{name:"Especialista Médico", words:["neurologo","pediatra","familiar"]}]);
+        renderIA('ia-anexos', find([{n:"Boleta Seriedad", p:["garantia","seriedad"]}, {n:"Anexo Administrativo", p:["anexo 1", "identificacion"]}, {n:"Declaración Jurada", p:["jurada","inhabilidades"]}]));
+        renderIA('ia-economico', find([{n:"Presupuesto Máximo", p:["presupuesto","disponible","$","clp"]}, {n:"Licitación por Líneas", p:["linea 1","item"]}]));
+        renderIA('ia-evaluacion', find([{n:"Precio (Puntaje Máx)", p:["precio","economico"]}, {name:"Experiencia", p:["experiencia","años"]}]));
+        renderIA('ia-profesionales', find([{n:"Neurólogo", p:["neurologo"]}, {n:"Pediatra", p:["pediatra"]}, {n:"Médico Familiar", p:["familiar"]}]));
 
         document.getElementById('ia-loading').classList.add('hidden');
         document.getElementById('ia-result').classList.remove('hidden');
@@ -164,7 +215,12 @@ async function analyzePDF() {
     reader.readAsArrayBuffer(file);
 }
 
-// 7. FUNCIONES DE MODAL Y FORMULARIO
+function renderIA(id, data) {
+    const container = document.getElementById(id);
+    container.innerHTML = data.length ? data.map(d => `<div class="p-3 bg-white border rounded-xl flex justify-between font-bold text-[10px] uppercase"><span>${d.n || d.name}</span><i data-lucide="check-circle" class="text-green-500 w-3 h-3"></i></div>`).join('') : '<p class="text-slate-300 text-[10px]">No detectado.</p>';
+}
+
+// GENERAL
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 function logout() { supabaseClient.auth.signOut().then(() => window.location.replace('login.html')); }
@@ -176,9 +232,8 @@ document.getElementById('tender-form').addEventListener('submit', async (e) => {
         codigo_id: document.getElementById('t-id').value,
         monto_adjudicado: Number(document.getElementById('t-monto').value),
         evaluacion: document.getElementById('t-eval').value,
-        status: document.getElementById('t-status').value
+        status: 'Pendiente'
     };
     const { error } = await supabaseClient.from('licitaciones').insert([nueva]);
     if (!error) { closeModal('modal-licitacion'); fetchLicitaciones(); document.getElementById('tender-form').reset(); }
-    else alert("Error: " + error.message);
 });
