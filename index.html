@@ -3,118 +3,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CardioHome SpA | Gestión de Licitaciones</title>
+    <title>CardioHome SpA | Tender Management System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        .sidebar-item:hover { background-color: #3730a3; transition: 0.3s; }
-        .status-badge { padding: 4px 12px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; border: 1px solid; }
+        body { font-family: 'Inter', sans-serif; }
+        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
+        .sidebar-link { transition: all 0.2s; border-left: 4px solid transparent; }
+        .sidebar-link.active { background: #1e1b4b; border-left-color: #ef4444; color: white; }
+        .status-pill { padding: 2px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans">
+<body class="bg-[#f8fafc] text-slate-800">
 
-    <div class="flex h-screen overflow-hidden">
-        <aside class="w-64 bg-indigo-900 text-white flex-shrink-0 flex flex-col">
-            <div class="p-6 flex items-center gap-3">
-                <img src="logo.png" alt="Logo" class="w-10 h-10 object-contain bg-white rounded-full p-1">
-                <span class="text-xl font-bold tracking-tight">CARDIOHOME</span>
+    <script>
+        const SB_URL = "https://ybwtjxgvicebwmyhkhda.supabase.co";
+        const SB_KEY = "sb_publishable_Ae-JOXtX_fLpFTMgne_4Sw_jiGrdCMp";
+        const supabase = supabase.createClient(SB_URL, SB_KEY);
+
+        async function checkAccess() {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) { window.location.href = 'login.html'; }
+        }
+        checkAccess();
+    </script>
+
+    <div class="flex h-screen">
+        <aside class="w-72 bg-[#0f172a] text-slate-400 flex flex-col shadow-2xl">
+            <div class="p-8 mb-4">
+                <div class="flex items-center gap-3">
+                    <img src="logo.png" alt="CardioHome" class="w-12 h-12 rounded-xl shadow-lg border-2 border-slate-700 p-1 bg-white">
+                    <div>
+                        <h1 class="text-white font-bold tracking-tight leading-none text-lg">CARDIOHOME</h1>
+                        <span class="text-[10px] text-red-500 font-black tracking-[0.2em]">SISTEMA DE GESTIÓN</span>
+                    </div>
+                </div>
             </div>
-            
-            <nav class="flex-1 px-4 py-4 space-y-2">
-                <button onclick="showSection('dashboard')" class="sidebar-item flex items-center gap-3 p-3 w-full rounded-lg bg-indigo-800">
-                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard
-                </button>
-                <button onclick="showSection('docs')" class="sidebar-item flex items-center gap-3 p-3 w-full rounded-lg">
-                    <i data-lucide="folder-open" class="w-5 h-5"></i> Documentación
-                </button>
-                <button onclick="showSection('staff')" class="sidebar-item flex items-center gap-3 p-3 w-full rounded-lg">
-                    <i data-lucide="users" class="w-5 h-5"></i> Staff Médico
-                </button>
+
+            <nav class="flex-1 px-4 space-y-1">
+                <p class="px-4 text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Menú Principal</p>
+                <a href="#" class="sidebar-link active flex items-center gap-3 p-3 rounded-lg text-slate-300 hover:text-white">
+                    <i data-lucide="layout-grid" class="w-5 h-5"></i> Dashboard
+                </a>
+                <a href="#" class="sidebar-link flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white">
+                    <i data-lucide="folder-kanban" class="w-5 h-5"></i> Licitaciones
+                </a>
+                
+                <p class="px-4 text-[10px] font-bold text-slate-500 uppercase mt-8 mb-2 tracking-widest">Repositorio</p>
+                <a href="#" class="sidebar-link flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white">
+                    <i data-lucide="file-check" class="w-5 h-5"></i> Órdenes de Compra
+                </a>
+                <a href="#" class="sidebar-link flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white">
+                    <i data-lucide="briefcase" class="w-5 h-5"></i> Documentos Legales
+                </a>
+                <a href="#" class="sidebar-link flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white">
+                    <i data-lucide="user-cog" class="w-5 h-5"></i> Staff Médico
+                </a>
             </nav>
 
-            <div class="p-4 border-t border-indigo-800">
-                <button onclick="logout()" class="flex items-center gap-3 p-3 w-full hover:bg-red-600 rounded-lg transition">
+            <div class="p-6 border-t border-slate-800">
+                <button onclick="supabase.auth.signOut().then(() => location.href='login.html')" class="flex items-center gap-3 p-3 w-full text-red-400 hover:bg-red-500/10 rounded-xl transition">
                     <i data-lucide="log-out" class="w-5 h-5"></i> Cerrar Sesión
                 </button>
             </div>
         </aside>
 
-        <main class="flex-1 overflow-y-auto">
-            <header class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10">
-                <h2 class="text-xl font-semibold text-slate-700" id="section-title">Panel de Licitaciones</h2>
-                <div class="flex items-center gap-4">
-                    <span id="user-display" class="text-sm text-slate-500 font-medium">Cargando usuario...</span>
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <header class="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-10 shadow-sm z-10">
+                <div>
+                    <h2 class="text-slate-400 text-xs font-bold uppercase tracking-widest">Bienvenido de vuelta</h2>
+                    <p class="text-slate-800 font-semibold" id="user-name">Administrador CardioHome</p>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="h-10 w-[1px] bg-slate-200"></div>
+                    <button class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-red-200 transition-all flex items-center gap-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Nueva Postulación
+                    </button>
                 </div>
             </header>
 
-            <div class="p-8 space-y-8" id="content-dashboard">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                        <p class="text-xs text-slate-400 uppercase font-bold">Total Adjudicado</p>
-                        <h3 id="kpi-monto" class="text-3xl font-black text-green-600">$0</h3>
+            <div class="flex-1 overflow-y-auto p-10 space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="glass-card p-6 rounded-3xl border border-white shadow-sm ring-1 ring-slate-200">
+                        <div class="w-10 h-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center mb-4"><i data-lucide="trending-up"></i></div>
+                        <p class="text-slate-500 text-xs font-bold uppercase">Adjudicado</p>
+                        <h3 class="text-2xl font-black text-slate-800" id="kpi-monto">$0</h3>
                     </div>
-                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                        <p class="text-xs text-slate-400 uppercase font-bold">Procesos Activos</p>
-                        <h3 id="kpi-count" class="text-3xl font-black text-indigo-600">0</h3>
+                    <div class="glass-card p-6 rounded-3xl border border-white shadow-sm ring-1 ring-slate-200">
+                        <div class="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center mb-4"><i data-lucide="file-text"></i></div>
+                        <p class="text-slate-500 text-xs font-bold uppercase">Licitaciones</p>
+                        <h3 class="text-2xl font-black text-slate-800" id="kpi-count">0</h3>
                     </div>
-                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                        <p class="text-xs text-slate-400 uppercase font-bold">Estado del Sistema</p>
-                        <h3 class="text-3xl font-black text-slate-800">ONLINE</h3>
+                    <div class="glass-card p-6 rounded-3xl border border-white shadow-sm ring-1 ring-slate-200">
+                        <div class="w-10 h-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center mb-4"><i data-lucide="pie-chart"></i></div>
+                        <p class="text-slate-500 text-xs font-bold uppercase">Margen Promedio</p>
+                        <h3 class="text-2xl font-black text-slate-800">32.5%</h3>
+                    </div>
+                    <div class="glass-card p-6 rounded-3xl border border-white shadow-sm ring-1 ring-slate-200">
+                        <div class="w-10 h-10 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mb-4"><i data-lucide="alert-circle"></i></div>
+                        <p class="text-slate-500 text-xs font-bold uppercase">Por Vencer</p>
+                        <h3 class="text-2xl font-black text-slate-800">3 Docs</h3>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <table class="w-full text-left">
-                        <thead class="bg-slate-50 text-slate-400 text-xs uppercase">
-                            <tr>
-                                <th class="px-6 py-4">Licitación</th>
-                                <th class="px-6 py-4">Evaluación</th>
-                                <th class="px-6 py-4">Monto</th>
-                                <th class="px-6 py-4">Estado</th>
-                                <th class="px-6 py-4 text-center">Simulador</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tender-table-body" class="divide-y divide-slate-100">
-                            </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div id="modal-simulador" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div class="bg-white rounded-2xl max-w-2xl w-full p-8 shadow-2xl">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-2xl font-bold text-indigo-900" id="sim-nombre">Simulador de Gastos</h3>
-                        <button onclick="closeModal()" class="text-slate-400 hover:text-red-500"><i data-lucide="x-circle"></i></button>
+                <div class="bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden">
+                    <div class="p-8 border-b border-slate-100 flex justify-between items-center">
+                        <h3 class="text-xl font-bold text-slate-800">Control de Licitaciones</h3>
+                        <div class="flex gap-2">
+                            <span class="bg-slate-100 text-slate-500 text-[10px] px-3 py-1 rounded-full font-bold">ACTUALIZADO EN VIVO</span>
+                        </div>
                     </div>
-                    <div class="grid md:grid-cols-2 gap-8">
-                        <div class="space-y-4">
-                            <div>
-                                <label class="text-xs font-bold text-slate-500 uppercase">Honorarios Médicos</label>
-                                <input type="number" id="gasto-medico" oninput="calculate()" class="w-full p-2 border rounded" value="0">
-                            </div>
-                            <div>
-                                <label class="text-xs font-bold text-slate-500 uppercase">Alojamiento y Traslado</label>
-                                <input type="number" id="gasto-logistica" oninput="calculate()" class="w-full p-2 border rounded" value="0">
-                            </div>
-                            <div>
-                                <label class="text-xs font-bold text-slate-500 uppercase">Otros Viáticos</label>
-                                <input type="number" id="gasto-otros" oninput="calculate()" class="w-full p-2 border rounded" value="0">
-                            </div>
-                        </div>
-                        <div class="bg-indigo-50 p-6 rounded-xl flex flex-col justify-center items-center">
-                            <p class="text-sm font-bold text-indigo-600 uppercase">Margen de Ganancia</p>
-                            <h4 class="text-4xl font-black" id="sim-resultado">$0</h4>
-                            <div class="w-full bg-slate-200 h-3 rounded-full mt-6 overflow-hidden">
-                                <div id="sim-bar" class="bg-green-500 h-full transition-all" style="width: 100%"></div>
-                            </div>
-                        </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="text-[10px] uppercase tracking-[0.15em] text-slate-400 bg-slate-50/50">
+                                    <th class="px-8 py-5 font-black">Información del Proceso</th>
+                                    <th class="px-8 py-5 font-black">Área Médica</th>
+                                    <th class="px-8 py-5 font-black">Presupuesto</th>
+                                    <th class="px-8 py-5 font-black">Estado Actual</th>
+                                    <th class="px-8 py-5 font-black text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tender-table-body" class="divide-y divide-slate-100">
+                                </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </main>
     </div>
 
+    <div id="modal-simulador" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-[2.5rem] max-w-4xl w-full p-10 shadow-2xl overflow-hidden relative">
+            <div class="absolute top-0 right-0 p-8">
+                <button onclick="closeModal()" class="text-slate-300 hover:text-red-500 transition-colors"><i data-lucide="x-circle" class="w-8 h-8"></i></button>
+            </div>
+            
+            <div class="flex flex-col md:flex-row gap-12">
+                <div class="flex-1 space-y-6">
+                    <div>
+                        <span class="text-red-500 font-bold text-xs uppercase tracking-widest">Simulador Financiero</span>
+                        <h3 class="text-3xl font-black text-slate-900 mt-1" id="sim-nombre">Nombre Licitación</h3>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="group">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Honorarios Médicos</label>
+                            <input type="number" id="gasto-medico" oninput="calculate()" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 outline-none transition-all font-semibold" value="0">
+                        </div>
+                        <div class="group">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Logística (Hotel/Vuelo)</label>
+                            <input type="number" id="gasto-logistica" oninput="calculate()" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 outline-none transition-all font-semibold" value="0">
+                        </div>
+                        <div class="group">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Otros Gastos</label>
+                            <input type="number" id="gasto-otros" oninput="calculate()" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 outline-none transition-all font-semibold" value="0">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full md:w-80 bg-[#0f172a] rounded-[2rem] p-8 text-white flex flex-col justify-center items-center shadow-2xl relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-red-500"></div>
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Utilidad Proyectada</p>
+                    <h4 class="text-4xl font-black text-white" id="sim-resultado">$0</h4>
+                    <p class="text-slate-500 text-[10px] mt-4 uppercase">Margen sobre el total</p>
+                    <div class="w-full bg-slate-800 h-2 rounded-full mt-2 overflow-hidden">
+                        <div id="sim-bar" class="bg-red-500 h-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
+    <script>lucide.createIcons();</script>
 </body>
 </html>
