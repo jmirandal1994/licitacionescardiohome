@@ -6,6 +6,7 @@ const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
 let currentPath = "ordenes";
 let licitacionesCache = [];
 let currentLicitacion = null;
+let tenderChartInstance = null; // Instancia global para el gráfico
 
 // FUNCIÓN PARA MENÚ MÓVIL
 function toggleMenu() {
@@ -58,7 +59,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // 3. NAVEGACIÓN DINÁMICA
 function switchView(view) {
-    if(window.innerWidth < 768) toggleMenu(); // Cierra menú en móvil tras elegir
+    if(window.innerWidth < 768) {
+        const sidebar = document.getElementById('sidebar');
+        if(sidebar.classList.contains('open')) toggleMenu();
+    }
 
     document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.sidebar-item').forEach(l => l.classList.remove('active'));
@@ -85,7 +89,7 @@ function switchView(view) {
 
 function changeFolder(path) { currentPath = path; loadFiles(); }
 
-// 4. GESTIÓN DE LICITACIONES
+// 4. GESTIÓN DE LICITACIONES Y GRÁFICO
 async function fetchLicitaciones() {
     const { data, error } = await supabaseClient.from('licitaciones').select('*').order('created_at', { ascending: false });
     if (error) return;
@@ -122,7 +126,7 @@ async function fetchLicitaciones() {
                         <option value="No Adjudicada" ${t.status === 'No Adjudicada' ? 'selected' : ''}>No Adjudicada</option>
                     </select>
                 </td>
-                <td class="px-6 md:px-8 py-4 md:py-5 text-center flex justify-center gap-2">
+                <td class="px-6 md:px-8 py-4 md:py-5 text-center">
                     <button onclick="openSimulador('${t.id}')" class="p-4 bg-slate-100 rounded-xl hover:bg-slate-900 hover:text-white transition">
                         <i data-lucide="calculator" class="w-4 h-4"></i>
                     </button>
@@ -131,7 +135,55 @@ async function fetchLicitaciones() {
     });
     document.getElementById('kpi-monto').innerText = `$${totalAdj.toLocaleString('es-CL')}`;
     document.getElementById('kpi-count').innerText = licitacionesCache.length;
+    
+    updateDashboardChart(); // Actualizar gráfico con datos nuevos
     lucide.createIcons();
+}
+
+// NUEVA FUNCIÓN: Generador de Gráfico
+function updateDashboardChart() {
+    const ctx = document.getElementById('tenderChart').getContext('2d');
+    
+    // Filtrar solo las adjudicadas
+    const adjudicadas = licitacionesCache.filter(l => l.status === 'Adjudicada');
+    const labels = adjudicadas.map(l => l.nombre_licitacion.substring(0, 15) + "...");
+    const values = adjudicadas.map(l => l.monto_adjudicado);
+
+    if (tenderChartInstance) {
+        tenderChartInstance.destroy(); // Destruir gráfico anterior para evitar superposición
+    }
+
+    tenderChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Monto en CLP',
+                data: values,
+                backgroundColor: '#ef4444', // Rojo CardioHome
+                borderRadius: 12,
+                maxBarThickness: 40
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { display: false },
+                    ticks: { font: { size: 10, weight: 'bold' }, color: '#94a3b8' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 9, weight: 'bold' }, color: '#94a3b8' }
+                }
+            }
+        }
+    });
 }
 
 async function updateStatus(id, newStatus) {
@@ -172,15 +224,8 @@ async function loadAnexos(licId) {
                 </div>
                 <div class="flex items-center gap-4 w-full md:w-auto justify-end">
                     <input type="file" id="file-${a.id}" class="hidden" accept=".pdf" onchange="uploadAnexoFile('${a.id}', '${licId}')">
-                    
-                    ${a.url_archivo ? `
-                        <button onclick="downloadAnexo('${a.url_archivo}', '${a.titulo_anexo}')" class="p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:scale-110 transition">
-                            <i data-lucide="download-cloud" class="w-5 h-5"></i>
-                        </button>` : ''}
-                    
-                    <button onclick="document.getElementById('file-${a.id}').click()" class="p-3 bg-slate-50 text-slate-300 hover:text-indigo-600 rounded-xl transition">
-                        <i data-lucide="upload-cloud" class="w-5 h-5"></i>
-                    </button>
+                    ${a.url_archivo ? `<button onclick="downloadAnexo('${a.url_archivo}', '${a.titulo_anexo}')" class="p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:scale-110 transition"><i data-lucide="download-cloud" class="w-5 h-5"></i></button>` : ''}
+                    <button onclick="document.getElementById('file-${a.id}').click()" class="p-3 bg-slate-50 text-slate-300 hover:text-indigo-600 rounded-xl transition"><i data-lucide="upload-cloud" class="w-5 h-5"></i></button>
                 </div>
             </div>`;
     });
@@ -191,18 +236,12 @@ async function uploadAnexoFile(anexoId, licId) {
     const fileInput = document.getElementById(`file-${anexoId}`);
     const file = fileInput.files[0];
     if(!file) return;
-
     const path = `anexos/${anexoId}_${Date.now()}.pdf`;
     const { error: uploadError } = await supabaseClient.storage.from('documentos').upload(path, file);
-    
     if (!uploadError) {
-        await supabaseClient.from('anexos_licitacion')
-            .update({ url_archivo: path, estado: 'Completado' })
-            .eq('id', anexoId);
+        await supabaseClient.from('anexos_licitacion').update({ url_archivo: path, estado: 'Completado' }).eq('id', anexoId);
         loadAnexos(licId);
-    } else {
-        alert("Error al subir anexo: " + uploadError.message);
-    }
+    } else { alert("Error al subir anexo: " + uploadError.message); }
 }
 
 async function downloadAnexo(path, title) {
@@ -231,7 +270,6 @@ async function uploadFile() {
     const userTitle = document.getElementById('file-title').value;
     const file = fileInput.files[0];
     if(!file) return;
-
     const finalName = `${userTitle.replace(/ /g, '_').toUpperCase()}__${Date.now()}__.pdf`;
     await supabaseClient.storage.from('documentos').upload(`${currentPath}/${finalName}`, file);
     document.getElementById('file-title').value = ''; 
@@ -241,23 +279,12 @@ async function uploadFile() {
 async function loadFiles() {
     const grid = document.getElementById('file-grid');
     grid.innerHTML = '<p class="col-span-3 text-center py-20 text-slate-400 font-black text-[10px] animate-pulse uppercase">Sincronizando Archivos...</p>';
-    
     const { data } = await supabaseClient.storage.from('documentos').list(currentPath);
     grid.innerHTML = '';
-    
     if(data) {
         data.forEach(f => {
             const title = f.name.split('__')[0].replace(/_/g, ' ');
-            grid.innerHTML += `
-                <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:border-red-500 transition-all">
-                    <div class="mb-4">
-                        <span class="text-[9px] font-bold text-slate-300 uppercase tracking-widest block mb-2">Documento PDF</span>
-                        <h5 class="font-bold text-slate-800 text-sm leading-tight uppercase">${title}</h5>
-                    </div>
-                    <button onclick="downloadGeneralFile('${f.name}')" class="bg-slate-900 text-white w-full py-3 rounded-xl text-[10px] font-bold uppercase hover:bg-red-600 transition">
-                        Descargar
-                    </button>
-                </div>`;
+            grid.innerHTML += `<div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:border-red-500 transition-all"><div class="mb-4"><span class="text-[9px] font-bold text-slate-300 uppercase tracking-widest block mb-2">Documento PDF</span><h5 class="font-bold text-slate-800 text-sm leading-tight uppercase">${title}</h5></div><button onclick="downloadGeneralFile('${f.name}')" class="bg-slate-900 text-white w-full py-3 rounded-xl text-[10px] font-bold uppercase hover:bg-red-600 transition">Descargar</button></div>`;
         });
     }
     lucide.createIcons();
@@ -277,7 +304,6 @@ async function analyzePDF() {
     if(!file) return;
     document.getElementById('ia-loading').classList.remove('hidden');
     document.getElementById('ia-result').classList.add('hidden');
-
     const reader = new FileReader();
     reader.onload = async function() {
         const typedarray = new Uint8Array(this.result);
@@ -289,25 +315,17 @@ async function analyzePDF() {
             text += content.items.map(item => item.str).join(" ");
         }
         const raw = text.toLowerCase();
-
         let report = "";
         if (raw.includes("licitacion publica")) report += "<p>• 🛡️ <strong>Diagnóstico:</strong> Licitación Pública detectada. Cumplir anexos administrativos estrictos.</p>";
         if (raw.includes("multa")) report += "<p>• 🚨 <strong>Alerta:</strong> Se detectan cláusulas de sanciones por retrasos.</p>";
         if (raw.includes("neurolog")) report += "<p>• 🩺 <strong>Directriz:</strong> Perfil requerido: Neurología. Usar staff acreditado SIS.</p>";
-
         document.getElementById('ia-detailed-report').innerHTML = report || "Proceso analizado correctamente.";
-
         const mapIA = (id, patterns) => {
             const container = document.getElementById(id);
-            container.innerHTML = patterns.filter(p => p.words.some(w => raw.includes(w))).map(p => `
-                <div class="p-3 bg-slate-50 border rounded-xl flex justify-between font-bold text-[9px] uppercase">
-                    <span>${p.name}</span><i data-lucide="check-circle" class="text-green-500 w-3 h-3"></i>
-                </div>`).join('') || '<span class="text-slate-300 text-[10px]">Sin hallazgos específicos.</span>';
+            container.innerHTML = patterns.filter(p => p.words.some(w => raw.includes(w))).map(p => `<div class="p-3 bg-slate-50 border rounded-xl flex justify-between font-bold text-[9px] uppercase"><span>${p.name}</span><i data-lucide="check-circle" class="text-green-500 w-3 h-3"></i></div>`).join('') || '<span class="text-slate-300 text-[10px]">Sin hallazgos específicos.</span>';
         }
-
         mapIA('ia-anexos', [{name:"Boleta Seriedad", words:["boleta","garantia"]}, {name:"Declaración Jurada", words:["jurada","inhabilidades"]}]);
         mapIA('ia-profesionales', [{name:"Especialista", words:["neurologo","pediatra","familiar"]}]);
-
         document.getElementById('ia-loading').classList.add('hidden');
         document.getElementById('ia-result').classList.remove('hidden');
         lucide.createIcons();
