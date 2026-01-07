@@ -7,6 +7,12 @@ let currentPath = "ordenes";
 let licitacionesCache = [];
 let currentLicitacion = null;
 
+// FUNCIÓN PARA MENÚ MÓVIL
+function toggleMenu() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('open');
+}
+
 // 2. INICIO Y SEGURIDAD
 document.addEventListener('DOMContentLoaded', async () => {
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -18,7 +24,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     fetchLicitaciones();
     lucide.createIcons();
 
-    // VINCULACIÓN DEL FORMULARIO DE LICITACIÓN + ANEXOS
     const tenderForm = document.getElementById('tender-form');
     if(tenderForm) {
         tenderForm.addEventListener('submit', async (e) => {
@@ -27,7 +32,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const idLic = document.getElementById('t-id').value;
             const monto = Number(document.getElementById('t-monto').value);
             
-            // Insertar Licitación Principal
             const { data: licData, error: licError } = await supabaseClient
                 .from('licitaciones')
                 .insert([{ nombre_licitacion: nombre, codigo_id: idLic, monto_adjudicado: monto, status: 'Pendiente' }])
@@ -35,7 +39,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (!licError && licData) {
                 const newId = licData[0].id;
-                // Capturar Anexos definidos en el modal
                 const anexoInputs = document.querySelectorAll('.anexo-input');
                 const anexosToInsert = Array.from(anexoInputs)
                     .filter(input => input.value.trim() !== "")
@@ -55,10 +58,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // 3. NAVEGACIÓN DINÁMICA
 function switchView(view) {
+    if(window.innerWidth < 768) toggleMenu(); // Cierra menú en móvil tras elegir
+
     document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.sidebar-item').forEach(l => l.classList.remove('active'));
     
-    // Corregido: Identificar vistas correctamente incluyendo 'legal'
     const targetSection = document.getElementById(`view-${(view === 'dashboard' || view === 'ia') ? view : 'files'}`);
     const targetNav = document.getElementById(`nav-${view}`);
 
@@ -98,25 +102,28 @@ async function fetchLicitaciones() {
 
         body.innerHTML += `
             <tr class="hover:bg-slate-50/50 transition border-b border-slate-50">
-                <td class="px-8 py-5">
+                <td class="px-6 md:px-8 py-4 md:py-5">
                     <p class="font-bold text-slate-800 text-sm">${t.nombre_licitacion}</p>
                     <span class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">${t.codigo_id}</span>
                 </td>
-                <td class="px-8 py-5 text-center">
-                    <button onclick="openAnexos('${t.id}', '${t.nombre_licitacion}')" class="text-[10px] font-black border px-4 py-2 rounded-xl hover:bg-slate-900 hover:text-white transition uppercase">
+                <td class="px-6 md:px-8 py-4 md:py-5 text-center">
+                    <button onclick="openAnexos('${t.id}', '${t.nombre_licitacion}')" class="w-full md:w-auto text-[10px] font-black border px-4 py-3 rounded-xl hover:bg-slate-900 hover:text-white transition uppercase">
                         GESTIÓN DOCUMENTAL
                     </button>
                 </td>
-                <td class="px-8 py-5 font-bold text-slate-700">$${Number(t.monto_adjudicado).toLocaleString('es-CL')}</td>
-                <td class="px-8 py-5">
-                    <select onchange="updateStatus('${t.id}', this.value)" class="status-badge ${color}">
+                <td class="px-6 md:px-8 py-4 md:py-5 font-bold text-slate-700">
+                    <span class="md:hidden text-[9px] text-slate-400 block uppercase">Monto:</span>
+                    $${Number(t.monto_adjudicado).toLocaleString('es-CL')}
+                </td>
+                <td class="px-6 md:px-8 py-4 md:py-5">
+                    <select onchange="updateStatus('${t.id}', this.value)" class="w-full md:w-auto status-badge p-2 rounded-lg text-[10px] font-bold ${color}">
                         <option value="Pendiente" ${t.status === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
                         <option value="Adjudicada" ${t.status === 'Adjudicada' ? 'selected' : ''}>Adjudicada</option>
                         <option value="No Adjudicada" ${t.status === 'No Adjudicada' ? 'selected' : ''}>No Adjudicada</option>
                     </select>
                 </td>
-                <td class="px-8 py-5 text-center">
-                    <button onclick="openSimulador('${t.id}')" class="p-3 bg-slate-100 rounded-xl hover:bg-slate-900 hover:text-white transition">
+                <td class="px-6 md:px-8 py-4 md:py-5 text-center flex justify-center gap-2">
+                    <button onclick="openSimulador('${t.id}')" class="p-4 bg-slate-100 rounded-xl hover:bg-slate-900 hover:text-white transition">
                         <i data-lucide="calculator" class="w-4 h-4"></i>
                     </button>
                 </td>
@@ -132,11 +139,11 @@ async function updateStatus(id, newStatus) {
     fetchLicitaciones();
 }
 
-// 5. GESTIÓN DE ANEXOS CON SUBIDA DE ARCHIVOS
+// 5. GESTIÓN DE ANEXOS
 function addAnexoInput() {
     const container = document.getElementById('anexos-input-list');
     const input = document.createElement('input');
-    input.className = "w-full p-2 bg-slate-50 border rounded-lg text-xs anexo-input mt-2";
+    input.className = "w-full p-2 bg-slate-50 border rounded-lg text-xs anexo-input mt-2 uppercase font-bold";
     input.placeholder = "Título del Anexo Requerido";
     container.appendChild(input);
 }
@@ -155,24 +162,24 @@ async function loadAnexos(licId) {
     data.forEach(a => {
         let style = a.estado === 'Completado' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100';
         list.innerHTML += `
-            <div class="flex justify-between items-center p-5 bg-white border border-slate-100 rounded-3xl shadow-sm">
-                <div>
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center p-5 bg-white border border-slate-100 rounded-[1.5rem] md:rounded-3xl shadow-sm gap-4">
+                <div class="w-full">
                     <p class="font-bold text-sm text-slate-800">${a.titulo_anexo}</p>
-                    <select onchange="updateAnexoStatus('${a.id}', this.value, '${licId}')" class="text-[9px] font-bold p-1 rounded-md border mt-2 ${style}">
+                    <select onchange="updateAnexoStatus('${a.id}', this.value, '${licId}')" class="text-[9px] font-bold p-2 rounded-md border mt-2 ${style} w-full md:w-auto">
                         <option value="Pendiente" ${a.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
                         <option value="Completado" ${a.estado === 'Completado' ? 'selected' : ''}>Completado</option>
                     </select>
                 </div>
-                <div class="flex items-center gap-4">
+                <div class="flex items-center gap-4 w-full md:w-auto justify-end">
                     <input type="file" id="file-${a.id}" class="hidden" accept=".pdf" onchange="uploadAnexoFile('${a.id}', '${licId}')">
                     
                     ${a.url_archivo ? `
-                        <button onclick="downloadAnexo('${a.url_archivo}', '${a.titulo_anexo}')" class="text-indigo-600 hover:scale-110 transition">
-                            <i data-lucide="download-cloud"></i>
+                        <button onclick="downloadAnexo('${a.url_archivo}', '${a.titulo_anexo}')" class="p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:scale-110 transition">
+                            <i data-lucide="download-cloud" class="w-5 h-5"></i>
                         </button>` : ''}
                     
-                    <button onclick="document.getElementById('file-${a.id}').click()" class="text-slate-200 hover:text-indigo-600 transition">
-                        <i data-lucide="upload-cloud"></i>
+                    <button onclick="document.getElementById('file-${a.id}').click()" class="p-3 bg-slate-50 text-slate-300 hover:text-indigo-600 rounded-xl transition">
+                        <i data-lucide="upload-cloud" class="w-5 h-5"></i>
                     </button>
                 </div>
             </div>`;
@@ -186,16 +193,12 @@ async function uploadAnexoFile(anexoId, licId) {
     if(!file) return;
 
     const path = `anexos/${anexoId}_${Date.now()}.pdf`;
-    
-    // 1. Subir al Storage de Supabase
     const { error: uploadError } = await supabaseClient.storage.from('documentos').upload(path, file);
     
     if (!uploadError) {
-        // 2. Actualizar la base de datos con la URL y marcar como COMPLETADO
         await supabaseClient.from('anexos_licitacion')
             .update({ url_archivo: path, estado: 'Completado' })
             .eq('id', anexoId);
-        
         loadAnexos(licId);
     } else {
         alert("Error al subir anexo: " + uploadError.message);
@@ -217,9 +220,9 @@ async function updateAnexoStatus(id, status, licId) {
     loadAnexos(licId);
 }
 
-// 6. REPOSITORIO GENERAL (Órdenes, Legal, Staff)
+// 6. REPOSITORIO GENERAL
 function triggerUpload() {
-    if (!document.getElementById('file-title').value) return alert("Define qué documento es.");
+    if (!document.getElementById('file-title').value) return alert("Define el nombre del documento.");
     document.getElementById('file-input').click();
 }
 
@@ -237,7 +240,7 @@ async function uploadFile() {
 
 async function loadFiles() {
     const grid = document.getElementById('file-grid');
-    grid.innerHTML = '<p class="col-span-3 text-center py-20 text-slate-400 font-black text-[10px] animate-pulse">SINCRONIZANDO...</p>';
+    grid.innerHTML = '<p class="col-span-3 text-center py-20 text-slate-400 font-black text-[10px] animate-pulse uppercase">Sincronizando Archivos...</p>';
     
     const { data } = await supabaseClient.storage.from('documentos').list(currentPath);
     grid.innerHTML = '';
@@ -246,12 +249,12 @@ async function loadFiles() {
         data.forEach(f => {
             const title = f.name.split('__')[0].replace(/_/g, ' ');
             grid.innerHTML += `
-                <div class="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:border-red-500 transition-all">
-                    <div>
-                        <span class="text-[9px] font-bold text-slate-300 uppercase tracking-widest block mb-2">Archivo</span>
-                        <h5 class="font-bold text-slate-800 text-sm leading-tight mb-4">${title}</h5>
+                <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:border-red-500 transition-all">
+                    <div class="mb-4">
+                        <span class="text-[9px] font-bold text-slate-300 uppercase tracking-widest block mb-2">Documento PDF</span>
+                        <h5 class="font-bold text-slate-800 text-sm leading-tight uppercase">${title}</h5>
                     </div>
-                    <button onclick="downloadGeneralFile('${f.name}')" class="bg-slate-900 text-white p-2 rounded-xl text-[10px] font-bold uppercase hover:bg-red-600 transition">
+                    <button onclick="downloadGeneralFile('${f.name}')" class="bg-slate-900 text-white w-full py-3 rounded-xl text-[10px] font-bold uppercase hover:bg-red-600 transition">
                         Descargar
                     </button>
                 </div>`;
@@ -268,7 +271,7 @@ async function downloadGeneralFile(name) {
     a.click();
 }
 
-// 7. IA ANALIZADOR ESTRATÉGICO
+// 7. IA ANALIZADOR
 async function analyzePDF() {
     const file = document.getElementById('ia-file').files[0];
     if(!file) return;
@@ -287,20 +290,19 @@ async function analyzePDF() {
         }
         const raw = text.toLowerCase();
 
-        // INFORME ESTRATÉGICO
         let report = "";
-        if (raw.includes("licitacion publica")) report += "<p>• 🛡️ <strong>Diagnóstico:</strong> Licitación Pública detectada. Se recomienda estricto cumplimiento de anexos administrativos.</p>";
-        if (raw.includes("multa")) report += "<p>• 🚨 <strong>Alerta:</strong> Se detectan cláusulas de sanciones por retrasos logísticos.</p>";
+        if (raw.includes("licitacion publica")) report += "<p>• 🛡️ <strong>Diagnóstico:</strong> Licitación Pública detectada. Cumplir anexos administrativos estrictos.</p>";
+        if (raw.includes("multa")) report += "<p>• 🚨 <strong>Alerta:</strong> Se detectan cláusulas de sanciones por retrasos.</p>";
         if (raw.includes("neurolog")) report += "<p>• 🩺 <strong>Directriz:</strong> Perfil requerido: Neurología. Usar staff acreditado SIS.</p>";
 
-        document.getElementById('ia-detailed-report').innerHTML = report || "Proceso estándar analizado.";
+        document.getElementById('ia-detailed-report').innerHTML = report || "Proceso analizado correctamente.";
 
         const mapIA = (id, patterns) => {
             const container = document.getElementById(id);
             container.innerHTML = patterns.filter(p => p.words.some(w => raw.includes(w))).map(p => `
                 <div class="p-3 bg-slate-50 border rounded-xl flex justify-between font-bold text-[9px] uppercase">
                     <span>${p.name}</span><i data-lucide="check-circle" class="text-green-500 w-3 h-3"></i>
-                </div>`).join('') || '<span class="text-slate-300 text-[10px]">Sin hallazgos.</span>';
+                </div>`).join('') || '<span class="text-slate-300 text-[10px]">Sin hallazgos específicos.</span>';
         }
 
         mapIA('ia-anexos', [{name:"Boleta Seriedad", words:["boleta","garantia"]}, {name:"Declaración Jurada", words:["jurada","inhabilidades"]}]);
